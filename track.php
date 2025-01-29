@@ -1,74 +1,54 @@
 <?php
-// Database configuration
-$dbHost = 'localhost';
-$dbName = 'shorten';
-$dbUser = 'root';
-$dbPass = '';
 
-try {
-    // Establishing PDO connection
-    $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
-    // Retrieve page_id from the URL parameter
-    $pageId = htmlspecialchars($_GET['page'] ?? '');
-
-    if (!$pageId) {
-        die("Page ID is required.");
-    }
-
-    // Check if the link has expired
-    $expiryQuery = "SELECT expiry_date FROM links WHERE page_id = :page_id";
-    $expiryStmt = $pdo->prepare($expiryQuery);
-    $expiryStmt->execute([':page_id' => $pageId]);
-    $expiryResult = $expiryStmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($expiryResult && strtotime($expiryResult['expiry_date']) < time()) {
-        // Delete related data from all tables
-        $pdo->prepare("DELETE FROM participants WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
-        $pdo->prepare("DELETE FROM link_views WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
-        $pdo->prepare("DELETE FROM links WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
-
-        die("This link has expired and all related data has been deleted.");
-    }
-
-    // Query to fetch most frequent referring site along with participant data
-    $query = "
-        SELECT 
-            p.username AS admin_username,
-            p.page_id,
-            p.participant_telegram_username,
-            COUNT(DISTINCT lv.ip_address) AS unique_ips,
-            SUM(p.total_view) AS total_views,
-            l.created_at AS link_created_at,
-            lv.referring_site,
-            COUNT(lv.referring_site) AS referring_site_count
-        FROM participants p
-        LEFT JOIN link_views lv ON p.link = lv.link
-        LEFT JOIN links l ON p.page_id = l.page_id
-        WHERE p.page_id = :page_id
-        GROUP BY p.participant_telegram_username, lv.referring_site
-        ORDER BY referring_site_count DESC
-    ";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([':page_id' => $pageId]);
-
-    $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Get the most frequent referring site
-    $mostFrequentReferringSite = '';
-    $maxCount = 0;
-
-    foreach ($participants as $participant) {
-        if ($participant['referring_site_count'] > $maxCount) {
-            $mostFrequentReferringSite = $participant['referring_site'];
-            $maxCount = $participant['referring_site_count'];
-        }
-    }
-
-} catch (PDOException $e) {
-    die("Database error: " . $e->getMessage());
+require_once 'connections.php';
+// Retrieve page_id from the URL parameter
+$pageId = htmlspecialchars($_GET['page'] ?? '');
+if (!$pageId) {
+    die("Page ID is required.");
 }
+// Check if the link has expired
+$expiryQuery = "SELECT expiry_date FROM links WHERE page_id = :page_id";
+$expiryStmt = $pdo->prepare($expiryQuery);
+$expiryStmt->execute([':page_id' => $pageId]);
+$expiryResult = $expiryStmt->fetch(PDO::FETCH_ASSOC);
+if ($expiryResult && strtotime($expiryResult['expiry_date']) < time()) {
+    // Delete related data from all tables
+    $pdo->prepare("DELETE FROM participants WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
+    $pdo->prepare("DELETE FROM link_views WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
+    $pdo->prepare("DELETE FROM links WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
+    die("This link has expired and all related data has been deleted.");
+}
+// Query to fetch most frequent referring site along with participant data
+$query = "
+    SELECT 
+        p.username AS admin_username,
+        p.page_id,
+        p.participant_telegram_username,
+        COUNT(DISTINCT lv.ip_address) AS unique_ips,
+        SUM(p.total_view) AS total_views,
+        l.created_at AS link_created_at,
+        lv.referring_site,
+        COUNT(lv.referring_site) AS referring_site_count
+    FROM participants p
+    LEFT JOIN link_views lv ON p.link = lv.link
+    LEFT JOIN links l ON p.page_id = l.page_id
+    WHERE p.page_id = :page_id
+    GROUP BY p.participant_telegram_username, lv.referring_site
+    ORDER BY referring_site_count DESC
+";
+$stmt = $pdo->prepare($query);
+$stmt->execute([':page_id' => $pageId]);
+$participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Get the most frequent referring site
+$mostFrequentReferringSite = '';
+$maxCount = 0;
+foreach ($participants as $participant) {
+    if ($participant['referring_site_count'] > $maxCount) {
+        $mostFrequentReferringSite = $participant['referring_site'];
+        $maxCount = $participant['referring_site_count'];
+    }
+}
+
 ?>
 
 
