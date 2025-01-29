@@ -1,0 +1,16 @@
+RewriteEngine On
+
+Options -Indexes
+
+Options -MultiViews
+
+
+RewriteCond %{REQUEST_FILENAME} !-f
+
+RewriteCond %{REQUEST_FILENAME} !-d
+
+RewriteRule ^p/([a-zA-Z0-9\-\_\+\;\:\,\.\%]+)$ participants.php?page_id=$1 [L,QSA,B]
+
+RewriteRule ^l/([a-zA-Z0-9\-\_\+\;\:\,\.\%]+)$ link.php?link=$1 [L,QSA,B]
+
+RewriteRule ^t/([a-zA-Z0-9\-\_\+\;\:\,\.\%]+)$ track.php?page=$1 [L,QSA,B]
