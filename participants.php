@@ -14,18 +14,17 @@ if (!$pageId) {
     $participant = $participantStmt->fetch(PDO::FETCH_ASSOC);
 
     if ($participant) {
-        // Step 1: Retrieve the expiry date using the link (found from participants table)
-        $expiryQuery = "SELECT expiry_date FROM links WHERE link = :link";
+        $expiryQuery = "SELECT expiry_date FROM links WHERE page_id = :page_id";
         $expiryStmt = $pdo->prepare($expiryQuery);
-        $expiryStmt->execute([':link' => $participant['link']]);
+        $expiryStmt->execute([':page_id' =>$pageId]);
         $expiryResult = $expiryStmt->fetch(PDO::FETCH_ASSOC);
-
+    
         if ($expiryResult && strtotime($expiryResult['expiry_date']) < time()) {
             // Step 2: Delete related data from all tables using the link
             $pdo->prepare("DELETE FROM participants WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
             $pdo->prepare("DELETE FROM link_views WHERE link = :link")->execute([':link' => $participant['link']]);
             $pdo->prepare("DELETE FROM links WHERE link = :link")->execute([':link' => $participant['link']]);
-
+            
             die("This link has expired and all related data has been deleted.");
         }
     }
