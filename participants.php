@@ -1,42 +1,32 @@
 <?php
-// Database configuration
-$dbHost = 'localhost';
-$dbName = 'shorten';
-$dbUser = 'root';
-$dbPass = '';
 
-try {
-    // Establishing PDO connection
-    $pdo = new PDO("mysql:host=$dbHost;dbname=$dbName;charset=utf8mb4", $dbUser, $dbPass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+require_once 'connections.php';
 
-    // Retrieve the page_id from the URL
-    $pageId = htmlspecialchars($_GET['page_id'] ?? '');
+// Retrieve the page_id from the URL
+$pageId = htmlspecialchars($_GET['page_id'] ?? '');
 
-    if (!$pageId) {
-        $errorMessage = "Invalid or missing Page ID.";
+if (!$pageId) {
+    $errorMessage = "Invalid or missing Page ID.";
+} else {
+    // Fetch link details using page_id
+    $query = "SELECT username, expiry_date FROM links WHERE page_id = :page_id LIMIT 1";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([':page_id' => $pageId]);
+    $link = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$link) {
+        $errorMessage = "Page not found.";
     } else {
-        // Fetch link details using page_id
-        $query = "SELECT username, expiry_date FROM links WHERE page_id = :page_id LIMIT 1";
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([':page_id' => $pageId]);
-        $link = $stmt->fetch(PDO::FETCH_ASSOC);
+        $creatorUsername = $link['username'];
+        $expiryDate = $link['expiry_date'];
 
-        if (!$link) {
-            $errorMessage = "Page not found.";
-        } else {
-            $creatorUsername = $link['username'];
-            $expiryDate = $link['expiry_date'];
-
-            // Check if the link is expired
-            if (strtotime($expiryDate) < time()) {
-                $errorMessage = "This competition link has expired.";
-            }
+        // Check if the link is expired
+        if (strtotime($expiryDate) < time()) {
+            $errorMessage = "This competition link has expired.";
         }
     }
-} catch (PDOException $e) {
-    $errorMessage = "Database error: " . $e->getMessage();
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
