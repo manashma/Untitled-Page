@@ -1,23 +1,35 @@
 <?php
-
 require_once 'connections.php';
+
 // Retrieve page_id from the URL parameter
 $pageId = htmlspecialchars($_GET['page'] ?? '');
 if (!$pageId) {
     die("Page ID is required.");
 }
-// Check if the link has expired
-$expiryQuery = "SELECT expiry_date FROM links WHERE page_id = :page_id";
-$expiryStmt = $pdo->prepare($expiryQuery);
-$expiryStmt->execute([':page_id' => $pageId]);
-$expiryResult = $expiryStmt->fetch(PDO::FETCH_ASSOC);
-if ($expiryResult && strtotime($expiryResult['expiry_date']) < time()) {
-    // Delete related data from all tables
-    $pdo->prepare("DELETE FROM participants WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
-    $pdo->prepare("DELETE FROM link_views WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
-    $pdo->prepare("DELETE FROM links WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
-    die("This link has expired and all related data has been deleted.");
+
+// Retrieve the link from the participants table using page_id
+$participantQuery = "SELECT link FROM participants WHERE page_id = :page_id LIMIT 1";
+$participantStmt = $pdo->prepare($participantQuery);
+$participantStmt->execute([':page_id' => $pageId]);
+$participant = $participantStmt->fetch(PDO::FETCH_ASSOC);
+
+if ($participant) {
+    // Step 1: Retrieve the expiry date using the link
+    $expiryQuery = "SELECT expiry_date FROM links WHERE page_id = :page_id";
+    $expiryStmt = $pdo->prepare($expiryQuery);
+    $expiryStmt->execute([':page_id' =>$pageId]);
+    $expiryResult = $expiryStmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($expiryResult && strtotime($expiryResult['expiry_date']) < time()) {
+        // Step 2: Delete related data from all tables using the link
+        $pdo->prepare("DELETE FROM participants WHERE page_id = :page_id")->execute([':page_id' => $pageId]);
+        $pdo->prepare("DELETE FROM link_views WHERE link = :link")->execute([':link' => $participant['link']]);
+        $pdo->prepare("DELETE FROM links WHERE link = :link")->execute([':link' => $participant['link']]);
+        
+        die("This link has expired and all related data has been deleted.");
+    }
 }
+
 // Query to fetch most frequent referring site along with participant data
 $query = "
     SELECT 
@@ -39,6 +51,7 @@ $query = "
 $stmt = $pdo->prepare($query);
 $stmt->execute([':page_id' => $pageId]);
 $participants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Get the most frequent referring site
 $mostFrequentReferringSite = '';
 $maxCount = 0;
@@ -51,7 +64,6 @@ foreach ($participants as $participant) {
 
 ?>
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -62,19 +74,36 @@ foreach ($participants as $participant) {
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        /* General Page Styling */
         body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 0;
-            background-color: #121212; /* Deep black background */
-            color: #f5f5f5; /* Light text for contrast */
-        }
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: url('/img.jpeg') no-repeat center center/cover;
+            color: #fff;
+            position: relative;
+        }       
+
+        /* Add a blur effect using an overlay */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: inherit;
+            filter: blur(5px);
+            z-index: -1;
+        }  
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background-color: #1c1c1c; /* Slightly lighter background for the container */
+            background-color:rgba(28, 28, 28, 0.4); /* Slightly lighter background for the container */
             padding: 40px;
             border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
@@ -205,11 +234,20 @@ foreach ($participants as $participant) {
             margin-right: 10px;
             color: rgb(255, 89, 0);
         }
+        .logo {
+            margin: 10px 0 0 0;
+            display: block;
+            margin: 0 auto 15px; /* Center horizontally and add spacing */
+            width: 190px; /* Set width */
+            height: 100px; /* Set height */
+            object-fit: contain; /* Ensure the image scales properly without distortion */
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <img src="/icon_blur.png" alt="Logo" class="logo">
     <h1><i class="fas fa-users icon"></i>Participant Tracking for Page: <?php echo $pageId; ?></h1>
 
     <div class="info">
