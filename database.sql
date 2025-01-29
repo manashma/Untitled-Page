@@ -24,8 +24,7 @@ CREATE TABLE IF NOT EXISTS participants (
     participant_telegram_username VARCHAR(255) UNIQUE NOT NULL,
     link VARCHAR(255) UNIQUE NOT NULL,
     total_view INT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (page_id) REFERENCES links(page_id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -37,6 +36,5 @@ CREATE TABLE IF NOT EXISTS link_views (
     ip_address VARCHAR(45) NOT NULL,
     last_viewed TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     referring_site VARCHAR(255) DEFAULT 'Direct',
-    UNIQUE (link, ip_address),
-    FOREIGN KEY (participant_telegram_username) REFERENCES participants(participant_telegram_username) ON DELETE CASCADE
+    UNIQUE (link, ip_address)
 );
